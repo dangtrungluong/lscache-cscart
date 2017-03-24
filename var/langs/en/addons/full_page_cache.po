@@ -75,3 +75,11 @@ msgstr "Marketplace license number"
 msgctxt "SettingsTooltips::full_page_cache::marketplace_license_number"
 msgid "If you've downloaded this module from the Marketplace, enter the license number to receive upgrades."
 msgstr "If you've downloaded this module from the Marketplace, enter the license number to receive upgrades."
+
+msgctxt "SettingsOptions::full_page_cache::lscache"
+msgid "Lscache"
+msgstr "Lscache"
+
+msgctxt "SettingsOptions::full_page_cache::lscache_to"
+msgid "Lscache_to"
+msgstr "Lscache_to"

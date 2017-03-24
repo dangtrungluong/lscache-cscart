@@ -18,6 +18,7 @@ use ride\library\varnish\exception\VarnishException;
 use ride\library\varnish\VarnishAdmin;
 use Tygh\Addons\FullPageCache\Varnish\VclGenerator;
 use Tygh\Application;
+use Tygh\Registry;
 
 final class Addon
 {
@@ -59,8 +60,10 @@ final class Addon
     /**
      * @var is using LiteSpeed Cache.
      */
-    protected $is_lscache = 1;
-    
+    protected $is_lscache = 0;
+
+    protected $enabled = false;
+
     /**
      * Addon constructor.
      *
@@ -72,8 +75,8 @@ final class Addon
         $this->app = $app;
         $this->setSettings($settings);
         
-        if ($this->is_lscache) {
-            $this->cache_tags_http_header_name = "X-LiteSpeed-Tag";
+        if ($this->isLscache()) {
+            $this->setCacheTagsHttpHeaderName("X-LiteSpeed-Tag");
         }
     }
 
@@ -174,33 +177,39 @@ final class Addon
     {
         $result = true;
 
-        if (!is_dir($this->varnish_vcl_directory) || !is_writable($this->varnish_vcl_directory)) {
-            $result = false;
-            fn_set_notification(
-                'E',
-                __('full_page_cache.unable_to_enable_full_page_caching'),
-                __('full_page_cache.error_cant_write_to_varnish_vcl_directory', array(
-                    '[directory]' => $this->varnish_vcl_directory
-                ))
-            );
-        }
+        if ($this->isLscache()) {
 
-        if (ini_get('session.auto_start')) {
-            $result = false;
-            fn_set_notification(
-                'E',
-                __('full_page_cache.unable_to_enable_full_page_caching'),
-                __('full_page_cache.error_session_auto_start_enabled')
-            );
+            return $result;
         }
+        else {
+            if (!is_dir($this->varnish_vcl_directory) || !is_writable($this->varnish_vcl_directory)) {
+                $result = false;
+                fn_set_notification(
+                    'E',
+                    __('full_page_cache.unable_to_enable_full_page_caching'),
+                    __('full_page_cache.error_cant_write_to_varnish_vcl_directory', array(
+                        '[directory]' => $this->varnish_vcl_directory
+                    ))
+                );
+            }
 
-        if (!$this->is_lscache && !$this->checkConnectionToVarnishAdm()) {
-            $result = false;
-            fn_set_notification(
-                'E',
-                __('full_page_cache.unable_to_enable_full_page_caching'),
-                __('full_page_cache.unable_to_connect_to_varhish')
-            );
+            if (ini_get('session.auto_start')) {
+                $result = false;
+                fn_set_notification(
+                    'E',
+                    __('full_page_cache.unable_to_enable_full_page_caching'),
+                    __('full_page_cache.error_session_auto_start_enabled')
+                );
+            }
+
+            if (!$this->checkConnectionToVarnishAdm()) {
+                $result = false;
+                fn_set_notification(
+                    'E',
+                    __('full_page_cache.unable_to_enable_full_page_caching'),
+                    __('full_page_cache.unable_to_connect_to_varnish')
+                );
+            }
         }
 
         return $result;
@@ -248,12 +257,16 @@ final class Addon
      */
     public function onAddonEnable()
     {
-        if ($this->is_lscache) {
+        $this->enabled = true;
+        if ($this->isLscache()) {
+            $this->lscacheEnableRewriteRules($this->settings["lscache_to"]);
             return;
         }
-        $this->regenerateEnablingVCLFile();
-        $this->useEnablingVCLFile();
-        $this->sendNotificationsOnEnable();
+        else {
+            $this->regenerateEnablingVCLFile();
+            $this->useEnablingVCLFile();
+            $this->sendNotificationsOnEnable();
+        }
     }
 
 
@@ -286,10 +299,13 @@ final class Addon
      */
     public function onAddonDisable()
     {
-        if ($this->is_lscache){
-            return;
+        $this->enabled = false;
+        if ($this->isLscache()) {
+            $this->lscacheDisableRewriteRules();
         }
-        $this->useDisablingVCLFile();
+        if (!($this->isLscache())) {
+            $this->useDisablingVCLFile();
+        }
     }
 
     /**
@@ -299,6 +315,9 @@ final class Addon
      */
     public function regenerateEnablingVCLFile()
     {
+        if ((!$this->fpcEnabled()) || ($this->isLscache())) {
+            return;
+        }
         file_put_contents($this->getEnablingVCLFilePath(), $this->getVclGeneratorInstance()->generate());
     }
 
@@ -404,8 +423,11 @@ final class Addon
      */
     public function invalidateByTags(array $tags)
     {
+        if (!$this->fpcEnabled()) {
+            return;
+        }
         if (!empty($tags)) {
-            if ($this->is_lscache) {
+            if ($this->isLscache()) {
                 $tags = implode(', tag=', $tags);
                 header( "X-LiteSpeed-Purge: tag=". $tags );
                 return;
@@ -454,5 +476,78 @@ final class Addon
     public function isEsiRequest()
     {
         return isset($_SERVER['HTTP_X_VARNISH_ESI']) && $_SERVER['HTTP_X_VARNISH_ESI'] == 'true';
+    }
+
+    public function lscacheEnableRewriteRules($timeout) {
+        $cscart_root = Registry::get('config.dir.root');
+        $handle_lscache = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_lscache","r");
+        $htaccess_lscache = fread($handle_lscache, filesize($cscart_root . "/app/addons/full_page_cache/htaccess_lscache"));
+        fclose($handle_lscache);
+        //change max-age to timeout limit provided in settings form as lscache_to
+        $htaccess_lscache = str_replace("~~lscache_to~~", $timeout, $htaccess_lscache);
+
+        $handle_orig = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_orig","r");
+        $htaccess_orig = fread($handle_orig, filesize($cscart_root . "/app/addons/full_page_cache/htaccess_orig"));
+        fclose($handle_orig);
+
+        $htaccess_target = fopen($cscart_root . "/.htaccess","w");
+        fwrite($htaccess_target, $htaccess_lscache);
+        fwrite($htaccess_target, "\n");
+        fwrite($htaccess_target, $htaccess_orig);
+        fclose($htaccess_target);
+    }
+
+    public function lscacheDisableRewriteRules()
+    {
+        $cscart_root = Registry::get('config.dir.root');
+        $handle_orig = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_orig","r");
+        $htaccess_orig = fread($handle_orig, filesize($cscart_root . "/app/addons/full_page_cache/htaccess_orig"));
+        fclose($handle_orig);
+
+        $htaccess_target = fopen($cscart_root . "/.htaccess","w");
+        fwrite($htaccess_target, $htaccess_orig);
+        fclose($htaccess_target);
+    }
+
+    public function fpcEnabled()
+    {
+        return $this->enabled;
+    }
+
+    public function isLscache()
+    {
+        $this->is_lscache = ($this->settings['radiogroup'] == "Litespeed") ? 1 : 0;
+        return $this->is_lscache;
+    }
+
+    public function switchMode($new_mode, $old_mode)
+    {
+        switch($old_mode) {
+            case "Varnish":
+                $this->is_lscache = 0;
+                $this->onAddonDisable();
+                break;
+            case "Litespeed":
+                $this->is_lscache = 1;
+                $this->onAddonDisable();
+                break;
+            default:
+                break;
+        }
+        switch($new_mode) {
+            case "Varnish":
+                $this->is_lscache = 0;
+                $this->setCacheTagsHttpHeaderName("X-Cache-Tags");
+                $this->canBeEnabled();
+                $this->onAddonEnable();
+                break;
+            case "Litespeed":
+                $this->is_lscache = 1;
+                $this->setCacheTagsHttpHeaderName("X-LiteSpeed-Tag");
+                $this->onAddonEnable();
+                break;
+            default:
+                break;
+        }
     }
 }

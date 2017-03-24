@@ -296,7 +296,16 @@ function fn_full_page_cache_create_seo_name_post($object_seo_name, $object_id, $
 
 function fn_full_page_cache_settings_update_value_by_id_post()
 {
-    fn_full_page_cache_require_vcl_regeneration();
+    $addon = Tygh::$app['addons.full_page_cache'];
+
+    if ($addon->isLscache() && $addon->fpcEnabled()) {
+        $lscache_to = Tygh::$app['addons.full_page_cache.settings']['lscache_to'];
+        lscacheEnableRewriteRules($lscache_to);
+    }
+    else if ($addon->fpcEnabled()) {
+        lscacheDisableRewriteRules();
+        fn_full_page_cache_require_vcl_regeneration();
+    }
 }
 
 function fn_full_page_cache_update_addon_status_post()
@@ -310,4 +319,44 @@ function fn_full_page_cache_update_customization_mode($modes, $enabled_modes) {
     } else {
         fn_full_page_cache_disable_cache_by_cookie();
     }
+}
+
+/**
+ * Hook is used to change cache from Varnish to LiteSpeed and back
+ *
+ * @param $new_status
+ */
+function fn_settings_actions_addons_full_page_cache_radiogroup($new_val, $old_val)
+{
+    /** @var \Tygh\Addons\FullPageCache\Addon $addon */
+    $addon = Tygh::$app['addons.full_page_cache'];
+
+    if (($new_val != $old_val) && $addon->fpcEnabled()) {
+        $addon->switchMode($new_val, $old_val);
+    }
+    // fn_update_addon_status('full_page_cache_unmanaged', $new_status, false, false, true);
+
+    // fn_full_page_cache_unrequire_vcl_regeneration();
+}
+
+/**
+ * Hook is used to change cache timeout for Litespeed
+ *
+ * @param $new_status
+ */
+function fn_settings_actions_addons_full_page_cache_lscache_to($new_val, $old_val)
+{
+    /** @var \Tygh\Addons\FullPageCache\Addon $addon */
+    $addon = Tygh::$app['addons.full_page_cache'];
+
+    // Litespeed enabled and lscache timeout setting updated
+    if (($addon->isLscache()) && $addon->fpcEnabled()) {
+        $addon->lscacheEnableRewriteRules($new_val);
+        return;
+    }
+   // }
+
+    // fn_update_addon_status('full_page_cache_unmanaged', $new_status, false, false, true);
+
+    // fn_full_page_cache_unrequire_vcl_regeneration();
 }

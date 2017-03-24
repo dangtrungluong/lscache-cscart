@@ -18,6 +18,19 @@
         <sections>
             <section id="general">
                 <items>
+                    <item id="radiogroup">
+                        <type>radiogroup</type>
+                        <name>Cache Solution</name>
+                        <default_value></default_value>
+                        <variants>
+                            <item id="Varnish">
+                                <name>Varnish</name>
+                            </item>
+                            <item id="Litespeed">
+                                <name>Litespeed</name>
+                            </item>
+                        </variants>
+                    </item>
                     <item id="varnish">
                         <type>header</type>
                     </item>
@@ -37,6 +50,13 @@
                     </item>
                     <item id="marketplace_license_number">
                         <type>input</type>
+                    </item>
+                    <item id="lscache">
+                        <type>header</type>
+                    </item>
+                    <item id="lscache_to">
+                        <type>input</type>
+                        <default_value>90</default_value>
                     </item>
                 </items>
             </section>

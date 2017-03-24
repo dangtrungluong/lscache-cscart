@@ -52,3 +52,4 @@ function fn_settings_actions_addons_post_full_page_cache($new_status)
 
     fn_full_page_cache_unrequire_vcl_regeneration();
 }
+

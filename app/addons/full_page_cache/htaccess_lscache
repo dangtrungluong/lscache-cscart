@@ -1,0 +1,16 @@
+# THESE ARE LITESPEED CACHE REWRITE RULES INCLUDED AUTOMATICALLY FROM htaccess_lscache
+# DO NOT CHANGE THESE LINES IN .htaccess AS THEY WILL BE REPLACED WITH A FRESH COPY
+# FROM htaccess_lscache EVERY TIME THE PLUGIN IS ENABLED
+# MAKE ANY DESIRED CHANGES IN htaccess_lscache INSTEAD
+<IfModule LiteSpeed>
+RewriteEngine on
+RewriteCond %{REQUEST_URI}   !(esi\.php|api\.php|admin\.php|cart/|checkout/|checkout\-customer\-info/|checkout\-summary/|orders/|compare/|wishlist/)
+RewriteCond %{QUERY_STRING}  !dispatch=(checkout\..+|orders\..+|wishlist\..+|product_features\.add_product|product_features\.clear_list|product_features\.delete_product|product_features\.delete_feature|product_features\.compare)
+RewriteCond %{HTTP_COOKIE}   !disable_cache=Y
+RewriteRule .* - [E=cache-control:max-age=~~lscache_to~~]
+
+RewriteCond %{REQUEST_URI}   !esi\.php
+RewriteCond %{HTTP_COOKIE}   fpc_sid_customer_4e5a7
+RewriteRule .* - [E=HTTP_X_HAS_SESSION:true,E=cache-control:vary=hassession,E=esi_on:1]
+</IfModule>
+# END OF LITESPEED CACHE REWRITE RULES
