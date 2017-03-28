@@ -301,6 +301,7 @@ final class Addon
     {
         $this->enabled = false;
         if ($this->isLscache()) {
+            header( "X-LiteSpeed-Purge: tag=ls_cscart,");
             $this->lscacheDisableRewriteRules();
         }
         if (!($this->isLscache())) {
@@ -467,7 +468,12 @@ final class Addon
 
         $tags = implode(',', $tags);
 
-        return $this->cache_tags_http_header_name . ': ' . $tags;
+        if ($this->isLscache()) {
+            return $this->cache_tags_http_header_name . ': ' . 'ls_cscart,' .   $tags;
+        }
+        else {
+            return $this->cache_tags_http_header_name . ': ' . $tags;
+        }
     }
 
     /**
@@ -491,14 +497,14 @@ final class Addon
 
         $htaccessFile = $cscart_root . "/.htaccess";
 
-        $result = $htaccessupdater->append($htaccessFile, $htaccess_lscache);
+        $result = $htaccessupdater->append($htaccessFile, $htaccess_lscache, false, true);
         if(!$result){
             fn_set_notification(
                 'E',
                 __('full_page_cache.unable_to_update_htaccess'),
-                __('full_page_cache.error_cant_write_to_htaccess', array(
+                __('full_page_cache.error_cant_write_to_htaccess_beginning', array(
                     '[file]' => $htaccessFile,
-                    '[content]' => $htaccess_lscache
+                    '[content]' => $htaccessupdater->generateBlock($htaccess_lscache)
                 ))
             );
         }
@@ -506,19 +512,20 @@ final class Addon
 
     public function lscacheDisableRewriteRules()
     {
-        /** @var HtaccessUpdater $htaccessupdater */
+       /** @var HtaccessUpdater $htaccessupdater */
         $htaccessupdater = $this->app['addons.full_page_cache.htaccessupdater'];
         
         $cscart_root = Registry::get('config.dir.root');
         $htaccessFile = $cscart_root . "/.htaccess";
 
-        $result = $htaccessupdater->append($htaccessFile, false);
+        $result = $htaccessupdater->append($htaccessFile);
         if(!$result){
             fn_set_notification(
                 'E',
                 __('full_page_cache.unable_to_update_htaccess'),
                 __('full_page_cache.error_cant_remove_from_htaccess', array(
-                    '[file]' => $htaccessFile
+                    '[file]' => $htaccessFile,
+                    '[content]' => $htaccessupdater->touchBlock($htaccessFile)
                 ))
             );
         }

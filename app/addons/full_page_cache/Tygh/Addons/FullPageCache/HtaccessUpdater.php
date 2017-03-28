@@ -1,23 +1,11 @@
 <?php
-
-// // Usage
-// // Append or Replace
-// $res = HtaccessUpdater::append('test.txt', ['xxx', 'xxx3']);
-// var_dump($res);
-// $res = HtaccessUpdater::append('test.txt', "aaa\nbbb\nccc");
-// var_dump($res);
-
-// // Read
-// $res = HtaccessUpdater::parse('test.txt');
-// var_dump($res);
-
-// // Delete
-// $res = HtaccessUpdater::append('test.txt', false);
-// var_dump($res);
-
 /**
 * Append/Replace content to a file
 */
+
+namespace Tygh\Addons\FullPageCache;
+
+
 class HtaccessUpdater
 {
 	const MARKER = 'LiteSpeed Rewrite Rules Updater';
@@ -37,16 +25,65 @@ class HtaccessUpdater
 	 * @param string       $filename  Filename to alter.
 	 * @param string       $marker    The marker to alter.
 	 * @param array|string $insertion The new content to insert.
+	 * @param bool 	       $prepend Prepend insertion if not exist.
 	 * @return bool True on write success, false on failure.
 	 */
-	public static function append($filename, $insertion = false, $marker = false){
+	public static function append($filename, $insertion = false, $marker = false, $prepend = false){
 		if(!$marker) {
 			$marker = self::MARKER;
 		}
 		if(!$insertion) {
 			$insertion = array();
 		}
-		return self::_insert_with_markers($filename, $marker, $insertion);
+		return self::_insert_with_markers($filename, $marker, $insertion, $prepend);
+	}
+
+	/**
+	 * Return wrapped block data with marker
+	 *
+	 * @param string $insertion
+	 * @param string $marker
+	 * @return string The block data
+	 */
+	public static function generateBlock($insertion, $marker = false){
+		if(!$marker) {
+			$marker = self::MARKER;
+		}
+		$start_marker = "# BEGIN {$marker}";
+		$end_marker   = "# END {$marker}";
+
+		$new_data = implode( "\n", array_merge(
+			array( $start_marker ),
+			$insertion,
+			array( $end_marker )
+		) );
+		return $new_data;
+	}
+
+	/**
+	 * Touch block data from file, return with marker
+	 *
+	 * @param string $filename
+	 * @param string $marker
+	 * @return string The current block data
+	 */
+	public static function touchBlock($filename, $marker = false){
+		if(!$marker) {
+			$marker = self::MARKER;
+		}
+		$result = self::_extract_from_markers($filename, $marker);
+		if(!$result){
+			return false;
+		}
+
+		$start_marker = "# BEGIN {$marker}";
+		$end_marker   = "# END {$marker}";
+		$new_data = implode( "\n", array_merge(
+			array( $start_marker ),
+			$result,
+			array( $end_marker )
+		) );
+		return $new_data;
 	}
 
 	/**
@@ -103,9 +140,10 @@ class HtaccessUpdater
 	 * @param string       $filename  Filename to alter.
 	 * @param string       $marker    The marker to alter.
 	 * @param array|string $insertion The new content to insert.
+	 * @param bool 	       $prepend Prepend insertion if not exist.
 	 * @return bool True on write success, false on failure.
 	 */
-	private static function _insert_with_markers( $filename, $marker, $insertion ) {
+	private static function _insert_with_markers( $filename, $marker, $insertion, $prepend = false) {
 		if ( ! file_exists( $filename ) ) {
 			if ( ! is_writable( dirname( $filename ) ) ) {
 				return false;
@@ -165,14 +203,27 @@ class HtaccessUpdater
 			return true;
 		}
 
-		// Generate the new file data
-		$new_file_data = implode( "\n", array_merge(
-			$pre_lines,
-			array( $start_marker ),
-			$insertion,
-			array( $end_marker ),
-			$post_lines
-		) );
+		// Check if need to prepend data if not exist
+		if($prepend && !$post_lines){
+			// Generate the new file data
+			$new_file_data = implode( "\n", array_merge(
+				array( $start_marker ),
+				$insertion,
+				array( $end_marker ),
+				$pre_lines
+			) );
+
+		}else{
+			// Generate the new file data
+			$new_file_data = implode( "\n", array_merge(
+				$pre_lines,
+				array( $start_marker ),
+				$insertion,
+				array( $end_marker ),
+				$post_lines
+			) );
+		}
+
 
 		// Write to the start of the file, and truncate it to that length
 		fseek( $fp, 0 );

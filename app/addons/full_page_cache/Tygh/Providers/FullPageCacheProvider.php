@@ -18,6 +18,7 @@ use Pimple\Container;
 use Pimple\ServiceProviderInterface;
 use Tygh\Addons\FullPageCache\Addon;
 use Tygh\Addons\FullPageCache\Storefront;
+use Tygh\Addons\FullPageCache\HtaccessUpdater;
 use Tygh\Addons\FullPageCache\Varnish\VclGenerator;
 use Tygh\Application;
 use Tygh\Registry;
@@ -48,6 +49,12 @@ final class FullPageCacheProvider implements ServiceProviderInterface
             $addon = new Addon($app, $app['addons.full_page_cache.settings']);
 
             $addon->setVarnishVCLDirectory(Registry::get('config.dir.var') . 'conf/varnish/');
+
+            return $addon;
+        };
+
+        Tygh::$app['addons.full_page_cache.htaccessupdater'] = function (Application $app) {
+            $addon = new HtaccessUpdater();
 
             return $addon;
         };
