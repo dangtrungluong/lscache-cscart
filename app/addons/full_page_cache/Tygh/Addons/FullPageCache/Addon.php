@@ -479,6 +479,9 @@ final class Addon
     }
 
     public function lscacheEnableRewriteRules($timeout) {
+        /** @var HtaccessUpdater $htaccessupdater */
+        $htaccessupdater = $this->app['addons.full_page_cache.htaccessupdater'];
+
         $cscart_root = Registry::get('config.dir.root');
         $handle_lscache = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_lscache","r");
         $htaccess_lscache = fread($handle_lscache, filesize($cscart_root . "/app/addons/full_page_cache/htaccess_lscache"));
@@ -486,27 +489,39 @@ final class Addon
         //change max-age to timeout limit provided in settings form as lscache_to
         $htaccess_lscache = str_replace("~~lscache_to~~", $timeout, $htaccess_lscache);
 
-        $handle_orig = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_orig","r");
-        $htaccess_orig = fread($handle_orig, filesize($cscart_root . "/app/addons/full_page_cache/htaccess_orig"));
-        fclose($handle_orig);
+        $htaccessFile = $cscart_root . "/.htaccess";
 
-        $htaccess_target = fopen($cscart_root . "/.htaccess","w");
-        fwrite($htaccess_target, $htaccess_lscache);
-        fwrite($htaccess_target, "\n");
-        fwrite($htaccess_target, $htaccess_orig);
-        fclose($htaccess_target);
+        $result = $htaccessupdater->append($htaccessFile, $htaccess_lscache);
+        if(!$result){
+            fn_set_notification(
+                'E',
+                __('full_page_cache.unable_to_update_htaccess'),
+                __('full_page_cache.error_cant_write_to_htaccess', array(
+                    '[file]' => $htaccessFile,
+                    '[content]' => $htaccess_lscache
+                ))
+            );
+        }
     }
 
     public function lscacheDisableRewriteRules()
     {
+        /** @var HtaccessUpdater $htaccessupdater */
+        $htaccessupdater = $this->app['addons.full_page_cache.htaccessupdater'];
+        
         $cscart_root = Registry::get('config.dir.root');
-        $handle_orig = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_orig","r");
-        $htaccess_orig = fread($handle_orig, filesize($cscart_root . "/app/addons/full_page_cache/htaccess_orig"));
-        fclose($handle_orig);
+        $htaccessFile = $cscart_root . "/.htaccess";
 
-        $htaccess_target = fopen($cscart_root . "/.htaccess","w");
-        fwrite($htaccess_target, $htaccess_orig);
-        fclose($htaccess_target);
+        $result = $htaccessupdater->append($htaccessFile, false);
+        if(!$result){
+            fn_set_notification(
+                'E',
+                __('full_page_cache.unable_to_update_htaccess'),
+                __('full_page_cache.error_cant_remove_from_htaccess', array(
+                    '[file]' => $htaccessFile
+                ))
+            );
+        }
     }
 
     public function fpcEnabled()
