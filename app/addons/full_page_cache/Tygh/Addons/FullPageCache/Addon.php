@@ -255,10 +255,22 @@ final class Addon
         switch($this->settings['radiogroup']) {
             case "Litespeed":
                 $this->lscacheEnableRewriteRules($this->settings["lscache_to"]);
+                fn_set_notification(
+                    'W',
+                    __('You have switched to Litespeed caching.'),
+                    __('For best peformance, reroute your traffic to this server instead of Varnish.'),
+                    'S'
+                );
                 break;
             case "Varnish":
                 $this->regenerateEnablingVCLFile();
                 $this->useEnablingVCLFile();
+                fn_set_notification(
+                    'W',
+                    __('You have switched to Varnish caching.'),
+                    __('For best peformance, reroute your traffic the Varnish server.'),
+                    'S'
+                );
                 $this->sendNotificationsOnEnable();
                 break;
         }
@@ -544,11 +556,23 @@ final class Addon
                 $this->lscacheDisableRewriteRules();
                 $this->regenerateEnablingVCLFile();
                 $this->useEnablingVCLFile();
+                fn_set_notification(
+                    'W',
+                    __('You have switched to Varnish caching.'),
+                    __('For best peformance, reroute your traffic the Varnish server.'),
+                    'S'
+                );
                 $this->sendNotificationsOnEnable();
                 break;
             case "Varnish":
                 $this->useDisablingVCLFile();
                 $this->lscacheEnableRewriteRules($this->settings["lscache_to"]);
+                fn_set_notification(
+                    'W',
+                    __('You have switched to Litespeed caching.'),
+                    __('For best peformance, reroute your traffic to this server instead of Varnish.'),
+                    'S'
+                );
                 break;
         }
     }
