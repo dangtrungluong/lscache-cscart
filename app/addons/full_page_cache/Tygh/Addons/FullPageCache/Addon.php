@@ -20,6 +20,7 @@ use Tygh\Addons\FullPageCache\Varnish\VclGenerator;
 use Tygh\Application;
 use Tygh\Registry;
 
+
 final class Addon
 {
     /**
@@ -68,7 +69,7 @@ final class Addon
     {
         $this->app = $app;
         $this->setSettings($settings);
-        
+
         if ($this->settings['radiogroup'] == "Litespeed") {
             $this->setCacheTagsHttpHeaderName("X-LiteSpeed-Tag");
         }
@@ -295,11 +296,11 @@ final class Addon
     {
         switch($this->settings['radiogroup']) {
             case "Litespeed":
-            header( "X-LiteSpeed-Purge: tag=ls_cscart,");
-            $this->lscacheDisableRewriteRules();
+                header( "X-LiteSpeed-Purge: tag=ls_cscart,");
+                $this->lscacheDisableRewriteRules();
                 break;
             case "Varnish":
-            $this->useDisablingVCLFile();
+                $this->useDisablingVCLFile();
                 break;
         }
     }
@@ -468,11 +469,11 @@ final class Addon
         $tags = implode(',', $tags);
 
 	if ($this->settings['radiogroup'] == "Litespeed") {
-		return $this->cache_tags_http_header_name . ': ' . 'ls_cscart,' .   $tags;;
-        }
-        else {
-            return $this->cache_tags_http_header_name . ': ' . $tags;
-        }
+		return $this->cache_tags_http_header_name . ': ' . 'ls_cscart,' .   $tags;
+	}
+	else {
+	        return $this->cache_tags_http_header_name . ': ' . $tags;
+	}
     }
 
     /**
@@ -485,7 +486,7 @@ final class Addon
 
     public function lscacheEnableRewriteRules($timeout) {
         /** @var HtaccessUpdater $htaccessupdater */
-        $htaccessupdater = $this->app['addons.full_page_cache.htaccessupdater'];
+        $htaccessupdater = \Tygh::$app['addons.full_page_cache.htaccessupdater'];
 
         $cscart_root = Registry::get('config.dir.root');
         $handle_lscache = fopen($cscart_root . "/app/addons/full_page_cache/htaccess_lscache","r");
@@ -512,7 +513,7 @@ final class Addon
     public function lscacheDisableRewriteRules()
     {
        /** @var HtaccessUpdater $htaccessupdater */
-        $htaccessupdater = $this->app['addons.full_page_cache.htaccessupdater'];
+        $htaccessupdater = \Tygh::$app['addons.full_page_cache.htaccessupdater'];
         
         $cscart_root = Registry::get('config.dir.root');
         $htaccessFile = $cscart_root . "/.htaccess";
