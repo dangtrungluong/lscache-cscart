@@ -57,12 +57,6 @@ final class Addon
      */
     protected $page_cache_tags = array();
 
-    /**
-     * @var is using LiteSpeed Cache.
-     */
-    protected $is_lscache = 0;
-
-    protected $enabled = false;
 
     /**
      * Addon constructor.
@@ -75,7 +69,7 @@ final class Addon
         $this->app = $app;
         $this->setSettings($settings);
         
-        if ($this->isLscache()) {
+        if ($this->settings['radiogroup'] == "Litespeed") {
             $this->setCacheTagsHttpHeaderName("X-LiteSpeed-Tag");
         }
     }
@@ -177,7 +171,7 @@ final class Addon
     {
         $result = true;
 
-        if ($this->isLscache()) {
+        if ($this->settings['radiogroup'] == "Litespeed") {
 
             return $result;
         }
@@ -257,15 +251,15 @@ final class Addon
      */
     public function onAddonEnable()
     {
-        $this->enabled = true;
-        if ($this->isLscache()) {
-            $this->lscacheEnableRewriteRules($this->settings["lscache_to"]);
-            return;
-        }
-        else {
-            $this->regenerateEnablingVCLFile();
-            $this->useEnablingVCLFile();
-            $this->sendNotificationsOnEnable();
+        switch($this->settings['radiogroup']) {
+            case "Litespeed":
+                $this->lscacheEnableRewriteRules($this->settings["lscache_to"]);
+                break;
+            case "Varnish":
+                $this->regenerateEnablingVCLFile();
+                $this->useEnablingVCLFile();
+                $this->sendNotificationsOnEnable();
+                break;
         }
     }
 
@@ -299,13 +293,14 @@ final class Addon
      */
     public function onAddonDisable()
     {
-        $this->enabled = false;
-        if ($this->isLscache()) {
+        switch($this->settings['radiogroup']) {
+            case "Litespeed":
             header( "X-LiteSpeed-Purge: tag=ls_cscart,");
             $this->lscacheDisableRewriteRules();
-        }
-        if (!($this->isLscache())) {
+                break;
+            case "Varnish":
             $this->useDisablingVCLFile();
+                break;
         }
     }
 
@@ -316,7 +311,7 @@ final class Addon
      */
     public function regenerateEnablingVCLFile()
     {
-        if ((!$this->fpcEnabled()) || ($this->isLscache())) {
+        if (Registry::get('addons.full_page_cache.status') == "D"){
             return;
         }
         file_put_contents($this->getEnablingVCLFilePath(), $this->getVclGeneratorInstance()->generate());
@@ -424,18 +419,22 @@ final class Addon
      */
     public function invalidateByTags(array $tags)
     {
-        if (!$this->fpcEnabled()) {
-            return;
-        }
-        if (!empty($tags)) {
-            if ($this->isLscache()) {
-                $tags = implode(', tag=', $tags);
-                header( "X-LiteSpeed-Purge: tag=". $tags );
-                return;
-            }
-            $this->getVarnishAdmInstance()->ban(
-                $this->buildBanByTagsRegexp($tags)
-            );
+        switch (Registry::get('addons.full_page_cache.status')) {
+            case "D":
+                break;
+            case "A":
+                if (!empty($tags)) {
+                    switch ($this->settings['radiogroup']) {
+                        case "Litespeed":
+                            $tags = implode(', tag=', $tags);
+                            header( "X-LiteSpeed-Purge: tag=". $tags );
+                            break;
+                        case "Varnish":
+                            $this->getVarnishAdmInstance()->ban($this->buildBanByTagsRegexp($tags));
+                            break;
+                    }
+                }
+                break;
         }
     }
 
@@ -468,8 +467,8 @@ final class Addon
 
         $tags = implode(',', $tags);
 
-        if ($this->isLscache()) {
-            return $this->cache_tags_http_header_name . ': ' . 'ls_cscart,' .   $tags;
+	if ($this->settings['radiogroup'] == "Litespeed") {
+		return $this->cache_tags_http_header_name . ': ' . 'ls_cscart,' .   $tags;;
         }
         else {
             return $this->cache_tags_http_header_name . ': ' . $tags;
@@ -531,44 +530,36 @@ final class Addon
         }
     }
 
-    public function fpcEnabled()
-    {
-        return $this->enabled;
-    }
-
     public function isLscache()
     {
-        $this->is_lscache = ($this->settings['radiogroup'] == "Litespeed") ? 1 : 0;
-        return $this->is_lscache;
+        return ($this->settings['radiogroup'] == "Litespeed") ? 1 : 0;
     }
 
-    public function switchMode($new_mode, $old_mode)
+    public function switchMode()
     {
-        switch($old_mode) {
-            case "Varnish":
-                $this->is_lscache = 0;
-                $this->onAddonDisable();
-                break;
+        switch ($this->settings['radiogroup']) {
             case "Litespeed":
-                $this->is_lscache = 1;
-                $this->onAddonDisable();
+                header("X-LiteSpeed-Purge: tag=ls_cscart,");
+                $this->lscacheDisableRewriteRules();
+                $this->regenerateEnablingVCLFile();
+                $this->useEnablingVCLFile();
+                $this->sendNotificationsOnEnable();
                 break;
-            default:
+            case "Varnish":
+                $this->useDisablingVCLFile();
+                $this->lscacheEnableRewriteRules($this->settings["lscache_to"]);
                 break;
         }
-        switch($new_mode) {
+    }
+
+    public function updateStatus()
+    {
+        switch ($this->settings['radiogroup']) { //switching from
             case "Varnish":
-                $this->is_lscache = 0;
-                $this->setCacheTagsHttpHeaderName("X-Cache-Tags");
-                $this->canBeEnabled();
-                $this->onAddonEnable();
+                return 0;
                 break;
             case "Litespeed":
-                $this->is_lscache = 1;
-                $this->setCacheTagsHttpHeaderName("X-LiteSpeed-Tag");
-                $this->onAddonEnable();
-                break;
-            default:
+                return 1;
                 break;
         }
     }
