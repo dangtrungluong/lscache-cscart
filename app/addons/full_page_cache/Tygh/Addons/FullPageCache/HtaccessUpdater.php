@@ -114,7 +114,7 @@ class HtaccessUpdater
 			return $result;
 		}
 
-		if ( $markerdata = explode( "\n", implode( '', file( $filename ) ) ));
+		if ( $markerdata = explode( "\n", implode( '', file( $filename ) ) ))
 		{
 			$state = false;
 			foreach ( $markerdata as $markerline ) {
