@@ -394,7 +394,7 @@ final class Addon
             rtrim($root_url, '\\/')
         );
 
-        $csrf_tag = '<esi:include src="'.$csrf_url.'" />';
+        $csrf_tag = '<esi:include src=\''.$csrf_url.'\' />';
         $csrf_tag .= '<esi:remove>'.fn_generate_security_hash().'</esi:remove>';
 
         // Get rid of original fields
